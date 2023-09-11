@@ -39,59 +39,100 @@ class RobotTuning(object):
         self.targetmin_angle = -self.targetmin_angle
 
 
+    def measure(self, freq):
+        # Track 10 periods of oscillations
+        t_run = 10/freq
+        file_n = 0
+
+        times = [], errors = [], angles = []
+        times.append('time')
+        errors.append('error')
+        angles.append('angle')
+        flag = True
+
+        # Check if calibration has been done
+        self.calibrate()
+        while ((self.min_angle > self.targetmin_angle) or 
+               (self.max_angle < self.targetmax_angle)):
+            print('Calibration failed')
+            print('Make sure you have calibrated thresholds')
+            print('If you have, please put the robot closer to the screen!')
+            self.calibrate()
+
+        print('Calibration complete')
+        # reset gimbal to max angle
+        self.servoBot.set_angle(self.max_angle)
+
+        while flag == True:
+            blobs, big_blob = self.get_blobs()
+
+            if big_blob.code() == 1:
+                flag == False
+
+        # Setup times for freq test                
+        t_start = time()
+        t_end =  t_start + t_run
+
+        while time() < t_end:
+            # Get new image and blocks
+            blobs = self.get_blobs()
+            big_blob = self.get_biggest_blob(blobs)
+
+            error, target_angle = self.update_gimbal(big_blob)
+
+            times.append(time()-t_start)
+            errors.append(error)
+            angles.append(target_angle)
+
+        data = [times,errors,target_angle]
+        
+        print('Testing finished - writing .csv')
+        file_name = "Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+        with open(file_name, 'w') as file:
+            for i in data:
+                for j in i:
+                    file.write(str(j) + ',')
+                file.write('\n')
+            
+
     def calibrate(self):
-        print("Please start the target tracking video")
+        print('Please start the target tracking video')
         self.max_angle = 0
         self.min_angle = 0
         self.servoBot.set_angle(0)
 
-        while True:
-            self.clock.tick()
-            img = sensor.snapshot()
+        #  Set up clock for FPS and time tracking
+        self.clock.tick()
+        t_lost = time() + 2
 
-            # Loop through all the blobs found - set thesholds and merge nearby blobs
-            for blob in img.find_blobs(
-                self.thresholds,
-                pixels_threshold=100,
-                area_threshold=100,
-                merge=True,
-            ):
-                # Drawing bounding box and blob centres
-                img.draw_rectangle(blob.rect())
-                img.draw_cross(blob.cx(), blob.cy())
+        # Loop until target is lost
+        while time() < t_lost:
 
-                t_lost = time()                
+            # Get list of blobs and biggest blob
+            blobs, big_blob = self.get_blobs()
+       
+            # Check if blob is the blue for calibration
+            if big_blob.code() == 4:
 
+                # track the calibration target
+                error, target_angle = self.update_gimbal(big_blob)
 
-                while t_lost < time:
-                    if blob.code() == 4:
-                        print('-----Calibration begun-----')
+                # Update tuning curve parameters
+                if error < 20:
+                    if target_angle < self.targetmin_angle:
+                        self.targetmin_angle = target_angle
+                        print('New min angle: ', self.targetmin_angle)
+                    if target_angle > self.targetmax_angle:
+                        self.targetmax_angle = target_angle
+                        print('New max angle: ', self.targetmax_angle)
 
-                        # track the calibration target
-                        error, target_angle = self.update_gimbal(blob)
+                t_lost = time()
 
-                        # Update tuning curve parameters
-                        if error < 20:
-                            if target_angle < self.targetmin_angle:
-                                self.targetmin_angle = target_angle
-                                print('New min angle: ', self.targetmin_angle)
-                            if target_angle > self.targetmax_angle:
-                                self.targetmax_angle = target_angle
-                                print('New max angle: ', self.targetmax_angle)
-
-                        t_lost = time()
-
-
-                self.update_gimbal(blob)
-
-                # Print info for debug
-                print('Block ID:     ',blob.code())
-                # print('X-value:      ',blob.cx())
-                # print('Blob angle:   ',blob_angle)
-                # print('Output:       ',output)
-                # print('Angle error:  ',error)
-                # print('Gimbal angle: ',self.servoBot.gimbal_pos)
-                # print('FPS:          ',self.clock.fps())
+            # Print info for debug
+            print('Block ID:      ',big_blob.code())
+            print('Target angle:  ',target_angle)
+            print('Gimbal angle:  ',self.servoBot.gimbal_pos)
+            print('FPS:           ',self.clock.fps())
 
 
     # output        - tracking error in ([deg]) and new camera angle in ([deg]) (tuple)
@@ -112,3 +153,29 @@ class RobotTuning(object):
 
         return (angle_error, target_angle)
 
+
+    def get_blobs(self):
+        pixel = 0
+        big_blob = blobs[0]
+
+        img = sensor.snapshot()
+        # Drawing bounding box and blob centres
+        blobs = img.find_blobs(
+                    self.thresholds,
+                    pixels_threshold=100,
+                    area_threshold=100,
+                    merge=True,
+                )
+        
+        # Find largest blob by pixels
+        # Could do area, but this is more likely accurate
+        
+        for blob in blobs:
+            img.draw_rectangle(blob.rect())
+            img.draw_cross(blob.cx(), blob.cy()) 
+            if blob.pixels() > pixel:  
+                pixel = blob.pixels()
+                big_blob = blob
+        
+        return blobs, big_blob
+    
