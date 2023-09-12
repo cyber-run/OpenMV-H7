@@ -1,8 +1,13 @@
 import sensor, time, os
 from servoBot import *
 from pid import PID
+import pyb
 
 class RobotTuning(object):
+    """
+    This class contains sensor settings and PID initialisation
+    for tuning the robot gimbal to track a target.
+    """
     def __init__(self, servoBot):
         self.servoBot = servoBot
         self.servoBot.set_angle(0)
@@ -12,13 +17,16 @@ class RobotTuning(object):
         sensor.reset()
         sensor.set_pixformat(sensor.RGB565)
         sensor.set_framesize(sensor.QVGA) # 320x140
-        sensor.skip_frames(time=1000) # Skip frames on script load
-        sensor.set_auto_gain(False)  # must be turned off for color tracking
-        sensor.set_auto_whitebal(False)  # must be turned off for color tracking
+        sensor.skip_frames(time=2000) # Skip frames on script load
+        # Both must be turned off for color tracking
+        sensor.set_auto_gain(False)
+        sensor.set_auto_whitebal(False)
 
-        # Orientation of image for upside down camera mounting
+        # Correct orientation of image for upside down camera mounting
         sensor.set_vflip(True)
         sensor.set_hmirror(True)
+
+        # Init sensor dims, FOV and clock
         self.w_centre = sensor.width()/2
         self.h_centre = sensor.height()/2
         self.h_fov = 70.8
@@ -40,8 +48,15 @@ class RobotTuning(object):
 
 
     def measure(self, freq):
+        """
+        This function measures the tracking error and gimbal angle of the
+        red square target for a given frequency of oscillation.
+
+        Args:
+            freq (int): frequency of oscillation in [Hz]
+        """
         # Track 10 periods of oscillations
-        t_run = 10/freq
+        t_run = 4/freq
         file_n = 0
 
         # Set up lists for data
@@ -78,10 +93,10 @@ class RobotTuning(object):
                 flag = False
 
         # Setup times for freq test
-        t_start = time.time()
+        t_start = self.get_time()
         t_end =  t_start + t_run
 
-        while time.time() < t_end:
+        while self.get_time() < t_end:
             # Get new image and blocks
             # Get list of blobs and biggest blob
             blobs, img = self.get_blobs()
@@ -89,45 +104,29 @@ class RobotTuning(object):
 
             if big_blob is not None and big_blob.code() == 1:
                 error, target_angle = self.update_gimbal(big_blob)
-            else:
-                print('Target lost')
 
-            times.append(time.time()-t_start)
+            print(self.get_time()-t_start)
+            times.append(self.get_time()-t_start)
             errors.append(error)
             angles.append(target_angle)
 
         data = [times,errors,angles]
 
-        print('Testing finished - writing .csv')
-
-        try:
-           os.mkdir("./CSV")
-        except OSError as e:
-           print("Directory exists")
-
-        file_name = "./CSV/Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
-
-        while self.file_exists(file_name):
-            file_n += 1
-            file_name = "./CSV/Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
-
-        with open(file_name, 'w') as file:
-            for i in data:
-                for j in i:
-                    file.write(str(j) + ',')
-                file.write('\n')
-
-        file.close()
+        self.write_csv(data, freq)
 
 
     def calibrate(self):
+        """
+        Method to calibrate the gimbal for position - sets the max and min
+        angles in tuning object and makes sure they're sufficient
+        """
         print('Please start the target tracking video')
         self.max_angle = 0
         self.min_angle = 0
         self.servoBot.set_angle(0)
 
         #  Set up clock for FPS and time tracking
-        t_run = time.time()
+        t_run = self.get_time()
         t_lost = t_run + 3
 
         # Loop until target is lost
@@ -142,7 +141,6 @@ class RobotTuning(object):
 
                 # track the calibration target
                 error, gimbal_angle = self.update_gimbal(big_blob)
-                print('Target', gimbal_angle)
 
                 # Update tuning curve parameters
                 if error < 20:
@@ -157,13 +155,25 @@ class RobotTuning(object):
                 t_lost = t_run + 3
 
             # Update run timer
-            t_run = time.time()
+            t_run = self.get_time()
 
             # print('FPS:           ',self.clock.fps())
 
 
-    # output        - tracking error in ([deg]) and new camera angle in ([deg]) (tuple)
-    def update_gimbal(self,blob):
+    def update_gimbal(self, blob):
+        """
+        Updates the camera gimbal - changing the servo angle to
+        track the blob passed into method.
+
+        Args:
+            blob (blob): object retrieved from find_blobs - see OpenMV docs
+
+        Returns:
+            angle_error (float): The differnce in angle between the blob
+            and gimbal heading
+            gimbal_angle (float): Angle of the gimbal wrt. heading
+
+        """
         # Error between camera angle and target in pixels
         pixel_error = blob.cx() - self.w_centre
 
@@ -182,6 +192,13 @@ class RobotTuning(object):
 
 
     def get_blobs(self):
+        """
+        Gets blobs from image snapshot.
+
+        Returns:
+            blobs (list): list of blobs
+            img (image): image from snapshot used to find blobs
+        """
         img = sensor.snapshot()
 
         blobs = img.find_blobs(self.thresholds,pixels_threshold=100,area_threshold=100,merge=True,)
@@ -189,7 +206,17 @@ class RobotTuning(object):
         return blobs, img
 
 
-    def get_big_blob(self,blobs,img):
+    def get_big_blob(self, blobs, img):
+        """
+        Get the biggest blob from a list of blobs.
+
+        Args:
+            blobs (list): list of blobs
+            img (image): image to draw bounding box and cross on blobs
+
+        Returns:
+            big_blob (blob): biggest blob - see OpenMV docs for blob class
+        """
         pixel = 0
         big_blob = None
         for blob in blobs:
@@ -203,11 +230,52 @@ class RobotTuning(object):
         return big_blob
 
 
-    # Check if file exists and return True or False
-    def file_exists(self, filename):
+    def write_csv(self, data: tuple, freq: int):
+        """
+        Write tracking data to a csv file.
+
+        Args:
+            data (tuple): lists of data to write to csv file.
+            freq (int): frequency data for naming the file.
+        """
+        # Set file ext counter to 0
+        file_n = 0
+
+        print("Testing Finished")
+
+        # Try making ./CSV directory if it doesn't exist
         try:
-            with open(filename, 'r'):
-                pass
-            return True
-        except OSError:
-            return False
+            os.mkdir("./CSV")
+        except OSError as e:
+            pass
+
+        # Generate initial file name
+        filename = "./CSV/Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+
+        # Check if file already exists and increment counter if it does
+        while True:
+            try:
+                with open(filename, 'r'):
+                    pass
+                # If file exists, increment the counter and try again
+                file_n += 1
+                filename = "./CSV/Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+            except OSError:
+                # If file doesn't exist, break out of loop
+                break
+
+        print("Saving to:", filename)
+
+        # Write data to csv file
+        with open(filename, 'w') as file:
+            # Transpose data for row-wise writing debug trailing comma
+            for row in zip(*data):
+                file.write(','.join(map(str, row)))
+                file.write('\n')
+
+        print("__Closing file__")
+        print("Reset OpenMV camera in tools dropdown to load CSV")
+
+
+    def get_time(self):
+        return pyb.millis()/1000
