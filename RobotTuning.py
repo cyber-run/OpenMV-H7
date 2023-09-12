@@ -99,17 +99,25 @@ class RobotTuning(object):
         data = [times,errors,angles]
 
         print('Testing finished - writing .csv')
-        file_name = "Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+
+        try:
+           os.mkdir("./CSV")
+        except OSError as e:
+           print("Directory exists")
+
+        file_name = "./CSV/Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
 
         while self.file_exists(file_name):
             file_n += 1
-            file_name = "Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+            file_name = "./CSV/Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
 
         with open(file_name, 'w') as file:
             for i in data:
                 for j in i:
                     file.write(str(j) + ',')
                 file.write('\n')
+
+        file.close()
 
 
     def calibrate(self):
