@@ -7,4 +7,4 @@ servo.soft_reset()
 
 tuning = RobotTuning(servo)
 
-tuning.calibrate()
+tuning.measure(0.1)

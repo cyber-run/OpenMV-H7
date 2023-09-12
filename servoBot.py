@@ -158,9 +158,14 @@ class servos:
 
     # Method to release the 3 servos and print a delay prompt for reset
     def soft_reset(self):
+        # Reset all servo shield pins
         for i in range(0, 7, 1):
             self.pca9685.duty(i, 0)
 
+        # Reset gimbal to centre
+        self.set_angle(0)
+
+        # Print delay prompt
         for i in range(3, 0, -1):
             print(f"{i} seconds remaining.")
             time.sleep(1)

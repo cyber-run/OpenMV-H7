@@ -1,4 +1,4 @@
-import sensor, time, math
+import sensor, time, os
 from servoBot import *
 from pid import PID
 
@@ -12,7 +12,7 @@ class RobotTuning(object):
         sensor.reset()
         sensor.set_pixformat(sensor.RGB565)
         sensor.set_framesize(sensor.QVGA) # 320x140
-        sensor.skip_frames(time=500) # Skip frames on script load
+        sensor.skip_frames(time=1000) # Skip frames on script load
         sensor.set_auto_gain(False)  # must be turned off for color tracking
         sensor.set_auto_whitebal(False)  # must be turned off for color tracking
 
@@ -35,8 +35,8 @@ class RobotTuning(object):
         # tuning curve parameters
         self.min_angle = 0
         self.max_angle = 0
-        self.targetmax_angle = 30
-        self.targetmin_angle = -self.targetmin_angle
+        self.targetmax_angle = 25
+        self.targetmin_angle = -self.targetmax_angle
 
 
     def measure(self, freq):
@@ -44,15 +44,20 @@ class RobotTuning(object):
         t_run = 10/freq
         file_n = 0
 
-        times = [], errors = [], angles = []
+        # Set up lists for data
+        times = []
+        errors = []
+        angles = []
         times.append('time')
         errors.append('error')
         angles.append('angle')
+
+        # Set up flag for searching for target
         flag = True
 
         # Check if calibration has been done
         self.calibrate()
-        while ((self.min_angle > self.targetmin_angle) or 
+        while ((self.min_angle > self.targetmin_angle) or
                (self.max_angle < self.targetmax_angle)):
             print('Calibration failed')
             print('Make sure you have calibrated thresholds')
@@ -63,37 +68,49 @@ class RobotTuning(object):
         # reset gimbal to max angle
         self.servoBot.set_angle(self.max_angle)
 
-        while flag == True:
-            blobs, big_blob = self.get_blobs()
+        while flag is True:
+            # Get list of blobs and biggest blob
+            blobs, img = self.get_blobs()
+            big_blob = self.get_big_blob(blobs,img)
 
-            if big_blob.code() == 1:
-                flag == False
+            # Check biggest blob is not None and is red for target then pass
+            if big_blob is not None and big_blob.code() == 1:
+                flag = False
 
-        # Setup times for freq test                
-        t_start = time()
+        # Setup times for freq test
+        t_start = time.time()
         t_end =  t_start + t_run
 
-        while time() < t_end:
+        while time.time() < t_end:
             # Get new image and blocks
-            blobs = self.get_blobs()
-            big_blob = self.get_biggest_blob(blobs)
+            # Get list of blobs and biggest blob
+            blobs, img = self.get_blobs()
+            big_blob = self.get_big_blob(blobs,img)
 
-            error, target_angle = self.update_gimbal(big_blob)
+            if big_blob is not None and big_blob.code() == 1:
+                error, target_angle = self.update_gimbal(big_blob)
+            else:
+                print('Target lost')
 
-            times.append(time()-t_start)
+            times.append(time.time()-t_start)
             errors.append(error)
             angles.append(target_angle)
 
-        data = [times,errors,target_angle]
-        
+        data = [times,errors,angles]
+
         print('Testing finished - writing .csv')
         file_name = "Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+
+        while self.file_exists(file_name):
+            file_n += 1
+            file_name = "Curve" + str(freq) + "Hz_" + str(file_n) + ".csv"
+
         with open(file_name, 'w') as file:
             for i in data:
                 for j in i:
                     file.write(str(j) + ',')
                 file.write('\n')
-            
+
 
     def calibrate(self):
         print('Please start the target tracking video')
@@ -102,37 +119,39 @@ class RobotTuning(object):
         self.servoBot.set_angle(0)
 
         #  Set up clock for FPS and time tracking
-        self.clock.tick()
-        t_lost = time() + 2
+        t_run = time.time()
+        t_lost = t_run + 3
 
         # Loop until target is lost
-        while time() < t_lost:
+        while t_run < t_lost:
 
             # Get list of blobs and biggest blob
-            blobs, big_blob = self.get_blobs()
-       
-            # Check if blob is the blue for calibration
-            if big_blob.code() == 4:
+            blobs, img = self.get_blobs()
+            big_blob = self.get_big_blob(blobs,img)
+
+            # Check biggest blob is not None and is the blue for calibration
+            if big_blob is not None and big_blob.code() == 4:
 
                 # track the calibration target
-                error, target_angle = self.update_gimbal(big_blob)
+                error, gimbal_angle = self.update_gimbal(big_blob)
+                print('Target', gimbal_angle)
 
                 # Update tuning curve parameters
                 if error < 20:
-                    if target_angle < self.targetmin_angle:
-                        self.targetmin_angle = target_angle
-                        print('New min angle: ', self.targetmin_angle)
-                    if target_angle > self.targetmax_angle:
-                        self.targetmax_angle = target_angle
-                        print('New max angle: ', self.targetmax_angle)
+                    if gimbal_angle < self.min_angle:
+                        self.min_angle = gimbal_angle
+                        print('New min angle: ', self.min_angle)
+                    if gimbal_angle > self.max_angle:
+                        self.max_angle = gimbal_angle
+                        print('New max angle: ', self.max_angle)
 
-                t_lost = time()
+                # As block was found reset lost timer
+                t_lost = t_run + 3
 
-            # Print info for debug
-            print('Block ID:      ',big_blob.code())
-            print('Target angle:  ',target_angle)
-            print('Gimbal angle:  ',self.servoBot.gimbal_pos)
-            print('FPS:           ',self.clock.fps())
+            # Update run timer
+            t_run = time.time()
+
+            # print('FPS:           ',self.clock.fps())
 
 
     # output        - tracking error in ([deg]) and new camera angle in ([deg]) (tuple)
@@ -146,36 +165,41 @@ class RobotTuning(object):
         pid_error = self.PID.get_pid(angle_error,1)
 
         # Error between camera angle and target in ([deg])
-        target_angle = self.servoBot.gimbal_pos + pid_error
+        gimbal_angle = self.servoBot.gimbal_pos + pid_error
 
         # Move gimbal servo to track block
-        self.servoBot.set_angle(target_angle)
+        self.servoBot.set_angle(gimbal_angle)
 
-        return (angle_error, target_angle)
+        return angle_error, gimbal_angle
 
 
     def get_blobs(self):
-        pixel = 0
-        big_blob = blobs[0]
-
         img = sensor.snapshot()
-        # Drawing bounding box and blob centres
-        blobs = img.find_blobs(
-                    self.thresholds,
-                    pixels_threshold=100,
-                    area_threshold=100,
-                    merge=True,
-                )
-        
-        # Find largest blob by pixels
-        # Could do area, but this is more likely accurate
-        
+
+        blobs = img.find_blobs(self.thresholds,pixels_threshold=100,area_threshold=100,merge=True,)
+
+        return blobs, img
+
+
+    def get_big_blob(self,blobs,img):
+        pixel = 0
+        big_blob = None
         for blob in blobs:
+            # Drawing bounding box and blob centres
             img.draw_rectangle(blob.rect())
-            img.draw_cross(blob.cx(), blob.cy()) 
-            if blob.pixels() > pixel:  
+            img.draw_cross(blob.cx(), blob.cy())
+            if blob.pixels() > pixel:
                 pixel = blob.pixels()
                 big_blob = blob
-        
-        return blobs, big_blob
-    
+
+        return big_blob
+
+
+    # Check if file exists and return True or False
+    def file_exists(self, filename):
+        try:
+            with open(filename, 'r'):
+                pass
+            return True
+        except OSError:
+            return False
