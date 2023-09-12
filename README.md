@@ -1,3 +1,19 @@
-EXTERNAL SD STORAGE MAP
+## ALBiR Robot Repo 
+This repo conatains the code required for the ALBiR robot for the courseworks.
 
-Do not remove or rename main.py
+Format the SD to ExFAT (or FAT) and then clone the contents of the repo to the SD card.
+
+Keep import dependancies in root directory of the SD card.
+
+### TODO List:
+- [x] Assigment 1
+- [ ] Fix servo coefficients
+- [x] Assigment 2
+- [x] Fix CSV writer
+- [ ] Assigment 3
+- [ ] Do test races
+
+### Extra TODO List:
+- [ ] Adjust mechanical design ie case
+- [ ] April tags for group assignment
+- [ ] Research ML approaches for group assignment
