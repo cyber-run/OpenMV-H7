@@ -1,18 +1,15 @@
-import pca9685, math, time
+import pca9685, math, pyb
 from machine import SoftI2C, Pin
 
-# nominal centre = 1500us
-# nominal range = 700/2300us
-
-# gimbal centre = 1650us
-# microSec range = 850/2450
-
-# wheel servos = 1,2 => centre = 1425us
-# wheel range = 625/2325us
 
 class servos:
+    """
+    Docstring for servos class.
+    """
     def __init__(self):
-
+        """
+        Initialises the servo object and sets the tuning coefficients.
+        """
         ###### EDIT THESE VALUES TO TUNE THE SERVOS ######
         self.pan_angle_corr = 0
         self.left_zero = -0.07
@@ -20,6 +17,20 @@ class servos:
         self.left_coeff = [[0, 0, 0], [0, 0, 0]]
         self.right_coeff = [[0, 0, 0], [0, 0, 0]]
         ###################################################
+
+        # IDs for servo pins on the servo shield
+        self.pan_id = 7
+        self.left_id = 5
+        self.right_id = 4
+
+        # Set up servo angle limits
+        self.degrees = 120
+        self.min_deg = -self.degrees/2
+        self.max_deg = self.degrees/2
+
+        self.curr_l_speed = 0
+        self.curr_r_speed = 0
+        self.gimbal_pos = 0
 
         self.freq = 50
         self.period = 1000000 / self.freq
@@ -30,25 +41,18 @@ class servos:
         self.mid_duty = (self.min_duty + self.max_duty) / 2
         self.span = (self.max_duty - self.min_duty)
 
-        self.degrees = 120
-        self.min_deg = -self.degrees/2
-        self.max_deg = self.degrees/2
-
-        self.last_right_speed = 0
-        self.last_left_speed = 0
-        self.gimbal_pos = 0
-
         # Initialise PCA9685 (I2C bus for sending PWM signal to servos)
         self.pca9685 = pca9685.PCA9685(SoftI2C(sda=Pin('P5'), scl=Pin('P4')), 0x40)
         self.pca9685.freq(self.freq)
 
-        # Initialise servo pins on the servo shield
-        self.pan_id = 7
-        self.right_id = 4
-        self.left_id = 5
 
+    def set_angle(self, angle: float) -> float:
+        """
+        Sets the angle of gimbal servo.
 
-    def set_angle(self, angle):
+        Args:
+            `angle` (float): Angle to set servo to in degrees
+        """
         # Correct for off centre angle
         angle = self.pan_angle_corr + angle
 
@@ -66,55 +70,67 @@ class servos:
         return angle - self.pan_angle_corr
 
 
-    def set_speed(self, target_left_speed, target_right_speed):
+    def set_speed(self, l_speed, r_speed):
+        """
+        Sets the speed of the left and right wheel servos.
+
+        Args:
+            `l_speed` (float): Speed to set left wheel servo to (-1~1) \n
+            `r_speed` (float): Speed to set right wheel servo to (-1~1)
+        """
         # Initialize signs for acceleration or deceleration
         left_sign = 0
         right_sign = 0
         graduation = 0.25  # max "acceleration"
-        delay = 0.05  # resting time between jumps in speed
+        delay = 50  # ms resting time between jumps in speed
 
         # Constraint speeds to limits
-        target_left_speed = max(min(target_left_speed, 1), -1)
-        target_right_speed = max(min(target_right_speed, 1), -1)
+        l_speed = max(min(l_speed, 1), -1)
+        r_speed = max(min(r_speed, 1), -1)
 
         # Smoothing for left speed
-        if abs(target_left_speed - self.last_left_speed) > graduation:
-            if target_left_speed - self.last_left_speed > 0:
+        if abs(l_speed - self.curr_l_speed) > graduation:
+            if l_speed - self.curr_l_speed > 0:
                 left_sign = 1
             else:
                 left_sign = -1
-            self.last_left_speed += graduation * left_sign
+            self.curr_l_speed += graduation * left_sign
         else:
-            self.last_left_speed = target_left_speed
+            self.curr_l_speed = l_speed
 
         # Smoothing for right speed
-        if abs(target_right_speed - self.last_right_speed) > graduation:
-            if target_right_speed - self.last_right_speed > 0:
+        if abs(r_speed - self.curr_r_speed) > graduation:
+            if r_speed - self.curr_r_speed > 0:
                 right_sign = 1
             else:
                 right_sign = -1
-            self.last_right_speed += graduation * right_sign
+            self.curr_r_speed += graduation * right_sign
         else:
-            self.last_right_speed = target_right_speed
+            self.curr_r_speed = r_speed
 
         # Convert smoothed speed to duty
-        l_duty = self.mid_duty + (self.span * (self.last_left_speed + self.left_zero))
-        r_duty = self.mid_duty - (self.span * (self.last_right_speed + self.right_zero))
+        l_duty = self.mid_duty + (self.span * (self.curr_l_speed + self.left_zero))
+        r_duty = self.mid_duty - (self.span * (self.curr_r_speed + self.right_zero))
 
         # Set duty and send PWM signal
         self.pca9685.duty(self.left_id, int(l_duty))
         self.pca9685.duty(self.right_id, int(r_duty))
 
         if left_sign != 0 or right_sign != 0:
-            time.sleep(delay)  # Wait for a short period before the next iteration
-            self.set_speed(target_left_speed, target_right_speed, delay)  # Recursive call
+            pyb.delay(delay)  # Wait for a short period before the next iteration
+            self.set_speed(l_speed, r_speed, delay)  # Recursive call
 
         return
 
 
-    # output            - corrected speed setting for desired speed based on tuning coeffs (-1~1)
-    # speed             - desired wheel speed (-1~1)
-    def getTurnSpeeds(self, speed):
+    #TODO: Implement tuning coefficients
+    def calc_speed(self, speed: float) -> float:
+        """
+        Returns the corrected speed setting for desired speed based on tuning coeffs.
+
+        Args:
+            `speed` (float): Desired wheel speed (-1~1)
+        """
         if any(x != 0 for v in self.coeffs for x in v): # if tuning coeffs exist
         # work out what throttle is needed to achieve desired speed
             if speed > 0:
@@ -138,26 +154,38 @@ class servos:
         return speed
 
 
-    # Convert duty cycle to microsecond
     def _duty2us(self, value):
+        """
+        Convert duty cycle to microsecond.
+        """
         return int(value * self.period / 4095)
 
 
-    # Convert microsecond to duty cycle
     def _us2duty(self, value):
+        """
+        Convert microsecond to duty cycle.
+        """
         return int(4095 * value / self.period)
 
 
-    # Simple servo release method
     def release(self, index):
+        """
+        Simple servo release method
+        """
         self.pca9685.duty(index, 0)
 
+
     def get_gimbal(self):
+        """
+        Returns the current angle of the gimbal servo.
+        """
         return self.gimabl_pos
 
 
-    # Method to release the 3 servos and print a delay prompt for reset
     def soft_reset(self):
+        """
+        Method to reset the servos to default and print a delay prompt.
+        """
         # Reset all servo shield pins
         for i in range(0, 7, 1):
             self.pca9685.duty(i, 0)
@@ -168,6 +196,6 @@ class servos:
         # Print delay prompt
         for i in range(3, 0, -1):
             print(f"{i} seconds remaining.")
-            time.sleep(1)
+            pyb.delay(1000)
 
         print("___Running Code___")

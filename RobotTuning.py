@@ -9,6 +9,12 @@ class RobotTuning(object):
     for tuning the robot gimbal to track a target.
     """
     def __init__(self, servoBot):
+        """
+        Initialises the robot tuning object.
+
+        Args:
+            `servoBot` (servoBot): servoBot required object to control gimbal
+        """
         self.servoBot = servoBot
         self.servoBot.set_angle(0)
         self.PID = PID(p=0.15, i=0, d=0, imax=0)
@@ -53,7 +59,7 @@ class RobotTuning(object):
         red square target for a given frequency of oscillation.
 
         Args:
-            freq (int): frequency of oscillation in [Hz]
+            `freq` (int): frequency of oscillation in [Hz]
         """
         # Track 10 periods of oscillations
         t_run = 4/freq
@@ -166,12 +172,12 @@ class RobotTuning(object):
         track the blob passed into method.
 
         Args:
-            blob (blob): object retrieved from find_blobs - see OpenMV docs
+            `blob` (blob): object retrieved from find_blobs - see OpenMV docs
 
         Returns:
-            angle_error (float): The differnce in angle between the blob
-            and gimbal heading
-            gimbal_angle (float): Angle of the gimbal wrt. heading
+            `angle_error` (float): The differnce in angle between the blob
+            and gimbal heading \n
+            `gimbal_angle` (float): Angle of the gimbal wrt. heading
 
         """
         # Error between camera angle and target in pixels
@@ -196,8 +202,8 @@ class RobotTuning(object):
         Gets blobs from image snapshot.
 
         Returns:
-            blobs (list): list of blobs
-            img (image): image from snapshot used to find blobs
+            `blobs` (list): list of blobs \n
+            `img` (image): image from snapshot used to find blobs
         """
         img = sensor.snapshot()
 
@@ -211,11 +217,11 @@ class RobotTuning(object):
         Get the biggest blob from a list of blobs.
 
         Args:
-            blobs (list): list of blobs
-            img (image): image to draw bounding box and cross on blobs
+            `blobs` (list): list of blobs \n
+            `img` (image): image to draw bounding box and cross on blobs
 
         Returns:
-            big_blob (blob): biggest blob - see OpenMV docs for blob class
+            `big_blob` (blob): the biggest blob from list - see OpenMV docs for blob class
         """
         pixel = 0
         big_blob = None
@@ -232,11 +238,11 @@ class RobotTuning(object):
 
     def write_csv(self, data: tuple, freq: int):
         """
-        Write tracking data to a csv file.
+        Write tracking data to a csv file. \n
 
         Args:
-            data (tuple): lists of data to write to csv file.
-            freq (int): frequency data for naming the file.
+            `data` (tuple): lists of data to write to csv file.\n
+            `freq` (int): frequency data for naming the file.
         """
         # Set file ext counter to 0
         file_n = 0
