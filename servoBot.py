@@ -1,10 +1,11 @@
-import pca9685, math, pyb
+import pca9685, pyb
 from machine import SoftI2C, Pin
+from math import asin
 
 
 class servos:
     """
-    Docstring for servos class.
+    Class for controlling servos through OpenMV board.
     """
     def __init__(self):
         """
@@ -63,14 +64,14 @@ class servos:
 
         # Compute duty for pca PWM signal
         duty = self.mid_duty + ( self.span * (angle / self.degrees) )
+
         # Set duty and send PVM signal
-        # print('Duty: ', int(duty))
         self.pca9685.duty(self.pan_id, int(duty) )
 
         return angle - self.pan_angle_corr
 
 
-    def set_speed(self, l_speed, r_speed):
+    def set_speed(self, l_speed: float, r_speed: float) -> None:
         """
         Sets the speed of the left and right wheel servos.
 
@@ -154,35 +155,35 @@ class servos:
         return speed
 
 
-    def _duty2us(self, value):
+    def _duty2us(self, value: float) -> int:
         """
         Convert duty cycle to microsecond.
         """
         return int(value * self.period / 4095)
 
 
-    def _us2duty(self, value):
+    def _us2duty(self, value: float) -> int:
         """
         Convert microsecond to duty cycle.
         """
         return int(4095 * value / self.period)
 
 
-    def release(self, index):
+    def release(self, index: int) -> None:
         """
         Simple servo release method
         """
         self.pca9685.duty(index, 0)
 
 
-    def get_gimbal(self):
+    def get_gimbal(self) -> float:
         """
         Returns the current angle of the gimbal servo.
         """
         return self.gimabl_pos
 
 
-    def soft_reset(self):
+    def soft_reset(self) -> None:
         """
         Method to reset the servos to default and print a delay prompt.
         """

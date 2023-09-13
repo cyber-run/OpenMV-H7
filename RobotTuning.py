@@ -283,5 +283,8 @@ class RobotTuning(object):
         print("Reset OpenMV camera in tools dropdown to load CSV")
 
 
-    def get_time(self):
+    def get_time(self) -> float:
+        """
+        Gets the time in seconds - since the OpenMV was last reset.
+        """
         return pyb.millis()/1000
