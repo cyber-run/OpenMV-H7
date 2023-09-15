@@ -1,5 +1,3 @@
-# Servo Shield Example.
-#
 # This example demonstrates the servo shield. Please follow these steps:
 #
 #   1. Connect a servo to any PWM output.

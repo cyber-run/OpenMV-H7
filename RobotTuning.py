@@ -17,7 +17,7 @@ class RobotTuning(object):
         """
         self.servoBot = servoBot
         self.servoBot.set_angle(0)
-        self.PID = PID(p=0.15, i=0, d=0, imax=0)
+        self.PID = PID(p=0.22, i=0, d=0, imax=0)
 
         # Set up camera sensor for capture
         sensor.reset()
@@ -62,7 +62,7 @@ class RobotTuning(object):
             `freq` (int): frequency of oscillation in [Hz]
         """
         # Track 10 periods of oscillations
-        t_run = 4/freq
+        t_run = 10/freq
         file_n = 0
 
         # Set up lists for data
@@ -111,7 +111,6 @@ class RobotTuning(object):
             if big_blob is not None and big_blob.code() == 1:
                 error, target_angle = self.update_gimbal(big_blob)
 
-            print(self.get_time()-t_start)
             times.append(self.get_time()-t_start)
             errors.append(error)
             angles.append(target_angle)
@@ -158,7 +157,7 @@ class RobotTuning(object):
                         print('New max angle: ', self.max_angle)
 
                 # As block was found reset lost timer
-                t_lost = t_run + 3
+                t_lost = t_run + 1.5
 
             # Update run timer
             t_run = self.get_time()
@@ -244,6 +243,14 @@ class RobotTuning(object):
             `data` (tuple): lists of data to write to csv file.\n
             `freq` (int): frequency data for naming the file.
         """
+        # print("Length of times:", len(data[0]))
+        # print("Length of errors:", len(data[1]))
+        # print("Length of angles:", len(data[2]))
+
+        # for i, row in enumerate(zip(*data)):
+        #     if i < 5:  # Print the first 5 rows
+        #         print(row)
+
         # Set file ext counter to 0
         file_n = 0
 
@@ -272,12 +279,20 @@ class RobotTuning(object):
 
         print("Saving to:", filename)
 
+        # HACK: Test this more might be fixing but unpredictable
         # Write data to csv file
         with open(filename, 'w') as file:
+            file.flush() # FLush buffer
+
             # Transpose data for row-wise writing debug trailing comma
             for row in zip(*data):
                 file.write(','.join(map(str, row)))
                 file.write('\n')
+                print(row)
+
+            file.flush() # FLush buffer
+
+        pyb.delay(5000)
 
         print("__Closing file__")
         print("Reset OpenMV camera in tools dropdown to load CSV")
