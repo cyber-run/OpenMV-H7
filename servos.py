@@ -1,11 +1,11 @@
-import pca9685, pyb
 from machine import SoftI2C, Pin
 from math import asin
+import pca9685, pyb
 
 
-class servos:
+class Servo:
     """
-    Class for controlling servos through OpenMV board.
+    Class for controlling servos through OpenMV board. 
     """
     def __init__(self):
         """

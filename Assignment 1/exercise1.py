@@ -1,14 +1,7 @@
-# This example demonstrates the servo shield. Please follow these steps:
-#
-#   1. Connect a servo to any PWM output.
-#   2. Connect a 3.7v battery (or 5V source) to VIN and GND.
-#   3. Copy pca9685.py and servo.py to OpenMV and reset it.
-#   4. Connect and run this script in the IDE.
-
+from servos import *
 import time
-from servoBot import *
 
-servo = servos()
+servo = Servo()
 
 servo.soft_reset()
 

@@ -1,22 +1,21 @@
-import sensor, time, os
-from servoBot import *
+import sensor, time, os, pyb
+from servos import *
 from pid import PID
-import pyb
 
-class RobotTuning(object):
+class Cam(object):
     """
     This class contains sensor settings and PID initialisation
     for tuning the robot gimbal to track a target.
     """
-    def __init__(self, servoBot):
+    def __init__(self, Servo):
         """
-        Initialises the robot tuning object.
+        Initialises the camera object.
 
         Args:
-            `servoBot` (servoBot): servoBot required object to control gimbal
+            `servo` (servo): Servo object required object to control gimbal
         """
-        self.servoBot = servoBot
-        self.servoBot.set_angle(0)
+        self.servo = Servo
+        self.servo.set_angle(0)
         self.PID = PID(p=0.22, i=0, d=0, imax=0)
 
         # Set up camera sensor for capture
@@ -87,7 +86,7 @@ class RobotTuning(object):
 
         print('Calibration complete')
         # reset gimbal to max angle
-        self.servoBot.set_angle(self.max_angle)
+        self.servo.set_angle(self.max_angle)
 
         while flag is True:
             # Get list of blobs and biggest blob
@@ -123,12 +122,12 @@ class RobotTuning(object):
     def calibrate(self):
         """
         Method to calibrate the gimbal for position - sets the max and min
-        angles in tuning object and makes sure they're sufficient
+        angles in cam object and makes sure they're sufficient
         """
         print('Please start the target tracking video')
         self.max_angle = 0
         self.min_angle = 0
-        self.servoBot.set_angle(0)
+        self.servo.set_angle(0)
 
         #  Set up clock for FPS and time tracking
         t_run = self.get_time()
@@ -188,10 +187,10 @@ class RobotTuning(object):
         pid_error = self.PID.get_pid(angle_error,1)
 
         # Error between camera angle and target in ([deg])
-        gimbal_angle = self.servoBot.gimbal_pos + pid_error
+        gimbal_angle = self.servo.gimbal_pos + pid_error
 
         # Move gimbal servo to track block
-        self.servoBot.set_angle(gimbal_angle)
+        self.servo.set_angle(gimbal_angle)
 
         return angle_error, gimbal_angle
 
@@ -235,7 +234,7 @@ class RobotTuning(object):
         return big_blob
 
 
-    def write_csv(self, data: tuple, freq: int):
+    def write_csv(self, data: tuple, freq: int) -> None:
         """
         Write tracking data to a csv file. \n
 
@@ -243,14 +242,6 @@ class RobotTuning(object):
             `data` (tuple): lists of data to write to csv file.\n
             `freq` (int): frequency data for naming the file.
         """
-        # print("Length of times:", len(data[0]))
-        # print("Length of errors:", len(data[1]))
-        # print("Length of angles:", len(data[2]))
-
-        # for i, row in enumerate(zip(*data)):
-        #     if i < 5:  # Print the first 5 rows
-        #         print(row)
-
         # Set file ext counter to 0
         file_n = 0
 
@@ -279,21 +270,19 @@ class RobotTuning(object):
 
         print("Saving to:", filename)
 
-        # HACK: Test this more might be fixing but unpredictable
+        # HACK: Flushing buffer seems to fix file handling bugs - but test
         # Write data to csv file
         with open(filename, 'w') as file:
-            file.flush() # FLush buffer
+            file.flush() # Flush buffer
 
             # Transpose data for row-wise writing debug trailing comma
             for row in zip(*data):
                 file.write(','.join(map(str, row)))
                 file.write('\n')
-                print(row)
 
-            file.flush() # FLush buffer
+            file.flush() # Flush buffer
 
-        pyb.delay(5000)
-
+        pyb.delay(1000)
         print("__Closing file__")
         print("Reset OpenMV camera in tools dropdown to load CSV")
 

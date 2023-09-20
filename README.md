@@ -7,7 +7,7 @@ Keep import dependancies in root directory of the SD card.
 
 ### TODO List:
 - [x] Assigment 1
-- [ ] Fix servo coefficients
+- [x] Fix servo coefficients
 - [x] Assigment 2
 - [x] Fix CSV writer
 - [ ] Assigment 3
@@ -15,5 +15,4 @@ Keep import dependancies in root directory of the SD card.
 
 ### Extra TODO List:
 - [ ] Adjust mechanical design ie case
-- [ ] April tags for group assignment
-- [ ] Research ML approaches for group assignment
+- [ ] Research ML ideas for group assignment
