@@ -5,7 +5,7 @@ import pca9685, pyb
 
 class Servo:
     """
-    Class for controlling servos through OpenMV board. 
+    Class for controlling servos through OpenMV board.
     """
     def __init__(self):
         """
@@ -13,8 +13,8 @@ class Servo:
         """
         ###### EDIT THESE VALUES TO TUNE THE SERVOS ######
         self.pan_angle_corr = 0
-        self.left_zero = -0.07
-        self.right_zero = 0.10
+        self.left_zero = -0.05
+        self.right_zero = 0.05
         self.left_coeff = [[0, 0, 0], [0, 0, 0]]
         self.right_coeff = [[0, 0, 0], [0, 0, 0]]
         ###################################################
@@ -119,7 +119,7 @@ class Servo:
 
         if left_sign != 0 or right_sign != 0:
             pyb.delay(delay)  # Wait for a short period before the next iteration
-            self.set_speed(l_speed, r_speed, delay)  # Recursive call
+            self.set_speed(l_speed, r_speed)  # Recursive call
 
         return
 
@@ -200,3 +200,10 @@ class Servo:
             pyb.delay(1000)
 
         print("___Running Code___")
+
+
+def get_time() -> float:
+    """
+    Gets the time in seconds - since the OpenMV was last reset.
+    """
+    return pyb.millis()/1000

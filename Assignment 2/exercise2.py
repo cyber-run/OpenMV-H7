@@ -1,9 +1,5 @@
-from servos import *
-from camera import *
+from tuning import *
 
-servo = Servo()
-servo.soft_reset()
+tuning = Tuning(0.2, 0, 0)
 
-tuning = Cam(servo)
-
-tuning.measure(0.8)
+tuning.measure(0.1)
