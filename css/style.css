@@ -1,0 +1,13 @@
+body {
+  color: white !important;
+}
+
+.md-typeset h1 {
+  color: white !important;
+  font-size: 2em;
+  font-weight: bold;
+}
+
+.md-typeset table {
+  font-size: 0.95em !important;
+}
