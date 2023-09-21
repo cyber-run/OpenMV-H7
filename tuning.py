@@ -5,17 +5,22 @@ import os
 
 class Tuning(object):
     """
-    This class contains PID initialisation, servo tuning and camera tuning
+    A class for managing PID tuning, servo calibration, and camera adjustments.
     """
+
     def __init__(self, p=0.22, i=0.0, d=0.0, imax=0.0):
-        # Initialise servos and reset to zero positions
+        """
+        Initialise the Tuning object with given PID parameters.
+        
+        Args:
+            p (float): Proportional gain.
+            i (float): Integral gain.
+            d (float): Derivative gain.
+            imax (float): Maximum Integral error.
+        """
         self.servo = Servo()
         self.servo.soft_reset()
-
-        # Initialise camera
         self.cam = Cam()
-
-        # Tuning parameters
         self.PID = PID(p, i, d, imax)
 
         self.min_angle = 0
@@ -26,11 +31,11 @@ class Tuning(object):
 
     def measure(self, freq):
         """
-        This function measures the tracking error and gimbal angle of the
-        red square target for a given frequency of oscillation.
+        Measures the tracking error and pan angle of the
+        red square target for a specified frequency of oscillation.
 
         Args:
-            `freq` (int): frequency of oscillation in [Hz]
+            freq (int): Frequency of oscillation in (Hz).
         """
         # Track 10 periods of oscillations
         t_run = 10/freq
@@ -57,7 +62,7 @@ class Tuning(object):
             self.calibrate()
 
         print('Calibration complete')
-        # reset gimbal to max angle
+        # reset pan to max angle
         self.servo.set_angle(self.max_angle)
 
         while flag is True:
@@ -80,7 +85,7 @@ class Tuning(object):
             big_blob = self.cam.get_big_blob(blobs,img)
 
             if big_blob is not None and big_blob.code() == 1:
-                error, target_angle = self.update_gimbal(big_blob)
+                error, target_angle = self.update_pan(big_blob)
 
             times.append(get_time()-t_start)
             errors.append(error)
@@ -93,8 +98,8 @@ class Tuning(object):
 
     def calibrate(self):
         """
-        Method to calibrate the gimbal for position - sets the max and min
-        angles in cam object and makes sure they're sufficient
+        Calibrate the pan positioning by setting max and min angles.
+        Provides feedback during the process.
         """
         print('Please start the target tracking video')
         self.max_angle = 0
@@ -116,15 +121,15 @@ class Tuning(object):
             if big_blob is not None and big_blob.code() == 4:
 
                 # track the calibration target
-                error, gimbal_angle = self.update_gimbal(big_blob)
+                error, pan_angle = self.update_pan(big_blob)
 
                 # Update tuning curve parameters
                 if error < 20:
-                    if gimbal_angle < self.min_angle:
-                        self.min_angle = gimbal_angle
+                    if pan_angle < self.min_angle:
+                        self.min_angle = pan_angle
                         print('New min angle: ', self.min_angle)
-                    if gimbal_angle > self.max_angle:
-                        self.max_angle = gimbal_angle
+                    if pan_angle > self.max_angle:
+                        self.max_angle = pan_angle
                         print('New max angle: ', self.max_angle)
 
                 # As block was found reset lost timer
@@ -136,18 +141,16 @@ class Tuning(object):
             # print('FPS:           ',self.clock.fps())
 
 
-    def update_gimbal(self, blob):
+    def update_pan(self, blob) -> tuple:
         """
-        Updates the camera gimbal - changing the servo angle to
-        track the blob passed into method.
+        Adjust the camera pan by changing the servo angle based on the given blob's position.
 
         Args:
-            `blob` (blob): object retrieved from find_blobs - see OpenMV docs
+            blob (blob): Object retrieved from find_blobs - see OpenMV docs
 
         Returns:
-            `angle_error` (float): The differnce in angle between the blob
-            and gimbal heading \n
-            `gimbal_angle` (float): Angle of the gimbal wrt. heading
+            angle_error (float): The difference in angle between the blob and pan servo \n
+            pan_angle (float): Angle of the pan wrt. heading
 
         """
         # Error between camera angle and target in pixels
@@ -159,21 +162,21 @@ class Tuning(object):
         pid_error = self.PID.get_pid(angle_error,1)
 
         # Error between camera angle and target in ([deg])
-        gimbal_angle = self.servo.gimbal_pos + pid_error
+        pan_angle = self.servo.pan_pos + pid_error
 
-        # Move gimbal servo to track block
-        self.servo.set_angle(gimbal_angle)
+        # Move pan servo to track block
+        self.servo.set_angle(pan_angle)
 
-        return angle_error, gimbal_angle
+        return angle_error, pan_angle
 
 
 def write_csv(data: tuple, freq: int) -> None:
     """
-    Write tracking data to a csv file. \n
+    Write tracking data to a CSV file.
 
     Args:
-        `data` (tuple): lists of data to write to csv file.\n
-        `freq` (int): frequency (Hz) for naming the file.
+        data (tuple): Tuple containing lists of data to write to CSV file.\n
+        freq (int): Frequency (Hz) for naming the file.
     """
     # Set file ext counter to 0
     file_n = 0

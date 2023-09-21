@@ -10,3 +10,5 @@ CSV/
 .vscode
 openmv.config
 *.py.autosave
+docs/
+mkdocs.yml

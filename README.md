@@ -6,13 +6,13 @@ Format the SD to ExFAT (or FAT) and then clone the contents of the repo to the S
 Keep import dependancies in root directory of the SD card.
 
 ### TODO List:
-- [x] Assigment 1
+- [x] Assignment 1
 - [x] Fix servo coefficients
-- [x] Assigment 2
+- [x] Assignment 2
 - [x] Fix CSV writer
-- [ ] Assigment 3
+- [x] Assignment 3
 - [ ] Do test races
-
 ### Extra TODO List:
+- [x] Create code docs
 - [ ] Adjust mechanical design ie case
 - [ ] Research ML ideas for group assignment

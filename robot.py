@@ -4,19 +4,26 @@ from pid import PID
 
 class Robot(object):
     """
-    This class contains robot functions for driving and tracking.
+    A class to manage the functions of a robot for driving and tracking purposes using a camera and servos.
     """
+
     def __init__(self, p=0.22, i=0.0, d=0.0, imax=0.0):
-        # Initialise servos and reset to zero positions
+        """
+        Initializes the Robot object with given PID parameters.
+
+        Args:
+            p (float): Proportional gain for the PID.
+            i (float): Integral gain for the PID.
+            d (float): Derivative gain for the PID.
+            imax (float): Maximum Integral error for the PID.
+        """
+
         self.servo = Servo()
         self.servo.soft_reset()
-
-        # Initialise camera
         self.cam = Cam()
-
-        # Tuning parameters
         self.PID = PID(p, i, d, imax)
 
+        # Blob IDs
         self.mid_line_id = 1
         self.l_line_id = 2
         self.r_line_id = 3
@@ -33,7 +40,7 @@ class Robot(object):
 
             if big_blob is not None and big_blob.code() == self.mid_line_id:
                 # Get heading angle
-                heading_angle = self.servo.gimbal_pos
+                heading_angle = self.servo.pan_pos
                 # Convert to angle correction weight (between -1 and 1)
                 angle_correction = heading_angle/self.servo.max_deg
                 # Drive towards line
@@ -48,8 +55,8 @@ class Robot(object):
         Differential drive function for the robot.
 
         Args:
-            `drive` (float): Speed to set the robot to (-1~1) \n
-            `bias` (float): Bias to set the robot to (-1~1)
+            drive (float): Speed to set the servos to (-1~1) \n
+            bias (float): Bias to set the steering to (-1~1)
         """
         # Apply limits
         bias = max(min(bias, 1), -1)
@@ -69,11 +76,15 @@ class Robot(object):
         self.servo.set_speed(l_drive, r_drive)
 
 
-    def track_blob(self, blob_id) -> None:
+    def track_blob(self, blob_id: int):
         """
-        Tracks a blob - changing the servo angle to
-        track the blob passed into method.
+        Adjust the camera pan angle to track a specified blob based on its ID.
 
+        Args:
+            blob_id (int): The ID of the blob to track.
+
+        Returns:
+            blob: The blob object tracked, if found. Otherwise, returns None.
         """
         # Get list of blobs and biggest blob
         blobs, img = self.cam.get_blobs()
@@ -91,20 +102,26 @@ class Robot(object):
             pid_error = self.PID.get_pid(angle_error,1)
 
             # Error between camera angle and target in ([deg])
-            gimbal_angle = self.servo.gimbal_pos + pid_error
+            pan_angle = self.servo.pan_pos + pid_error
 
-            # Move gimbal servo to track block
-            self.servo.set_angle(gimbal_angle)
+            # Move pan servo to track block
+            self.servo.set_angle(pan_angle)
 
         return big_blob
 
 
     def reset(self) -> None:
         """
-        Function to reset servos to zero positions
+        Resets the servo positions to their default states.
         """
         self.servo.soft_reset()
 
 
     def test(self, int: float) -> None:
-        return None
+        """
+        A test function for the Robot. Currently not implemented.
+        
+        Args:
+            int (float): A sample input parameter for the test function.
+        """
+        pass
