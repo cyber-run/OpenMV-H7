@@ -8,6 +8,7 @@ body {
   font-weight: bold;
 }
 
-.md-typeset table {
-  font-size: 0.95em !important;
+
+table {
+  font-size: medium !important;
 }
