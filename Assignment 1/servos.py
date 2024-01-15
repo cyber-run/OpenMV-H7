@@ -2,7 +2,6 @@ from machine import SoftI2C, Pin
 from math import asin
 import pca9685, time
 
-
 class Servo:
     """
     A class responsible for controlling servos via the OpenMV board.
@@ -45,6 +44,32 @@ class Servo:
         # Initialise the PCA9685 controller for I2C communication.
         self.pca9685 = pca9685.PCA9685(SoftI2C(sda=Pin('P5'), scl=Pin('P4')), 0x40)
         self.pca9685.freq(self.freq)
+
+
+    def set_differential_drive(self, speed_coeff: float, steering_bias: float) -> None:
+        """
+        Set speeds for a differential drive robot using a speed coefficient and a steering bias.
+
+        Args:
+            speed_coeff (float): Overall speed coefficient of the robot (0 to 1).
+            steering_bias (float): Steering bias for the robot (-1 to 1).
+        """
+        # Validate input ranges
+        speed_coeff = max(min(speed_coeff, 1), 0)
+        steering_bias = max(min(steering_bias, 1), -1)
+
+        # Calculate individual wheel speeds
+        left_speed = speed_coeff * (1 - steering_bias)
+        right_speed = speed_coeff * (1 + steering_bias)
+
+        # Normalize speeds if they exceed 1
+        max_speed = max(abs(left_speed), abs(right_speed))
+        if max_speed > 1:
+            left_speed /= max_speed
+            right_speed /= max_speed
+
+        # Set the speeds
+        self.set_speed(left_speed, right_speed)
 
 
     def set_angle(self, angle: float) -> float:
@@ -115,6 +140,10 @@ class Servo:
         # Convert smoothed speed to duty
         l_duty = self.mid_duty + (self.span * (self.curr_l_speed + self.left_zero))
         r_duty = self.mid_duty - (self.span * (self.curr_r_speed + self.right_zero))
+
+        # Ensure duty cycle values are within the valid range
+        l_duty = max(min(l_duty, 4095), 0)
+        r_duty = max(min(r_duty, 4095), 0)
 
         # Set duty and send PWM signal
         self.pca9685.duty(self.left_id, int(l_duty))
@@ -216,11 +245,30 @@ class Servo:
         print("___Running Code___")
 
 
-def get_time() -> float:
-    """
-    Fetch the elapsed time since the OpenMV board was last reset.
 
-    Returns:
-        float: Elapsed time in seconds.
-    """
-    return time.time()
+if __name__ == "__main__":
+    servo = Servo()
+    servo.soft_reset()
+
+    # Servo speed test
+    print('\n0,0')
+    servo.set_speed(1,1)
+    time.sleep_ms(1000)
+
+    print('\n0.2,0.2')
+    servo.set_speed(0.2,0.2)
+    time.sleep_ms(10000)
+
+    print('\n0.5, 0.5')
+    servo.set_speed(0.5, 0.5)
+    time.sleep_ms(3000)
+
+    print('\n0, 0')
+    servo.set_speed(0.8, 0.8)
+    time.sleep_ms(3000)
+
+    print('\n1, 1')
+    servo.set_speed(0.8, 0.8)
+    time.sleep_ms(3000)
+
+    servo.soft_reset()

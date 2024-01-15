@@ -12,3 +12,4 @@ openmv.config
 *.py.autosave
 docs/
 mkdocs.yml
+.*
