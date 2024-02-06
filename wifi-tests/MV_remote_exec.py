@@ -3,6 +3,10 @@ import time
 import network
 import socket
 import errno
+import pyb
+
+led = pyb.LED(1)
+led.on()
 
 # Network settings
 SSID = 'charlie'  # Network SSID

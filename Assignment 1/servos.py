@@ -13,11 +13,9 @@ class Servo:
         """
         # Servo tuning coefficients; EDIT these values as required.
         self.pan_angle_corr = 0
-        self.left_zero = -0.05
-        self.right_zero = 0.05
-        self.left_coeff = [[0, 0, 0], [0, 0, 0]]
-        self.right_coeff = [[0, 0, 0], [0, 0, 0]]
-
+        self.left_zero = 0.05
+        self.right_zero = -0.1
+        
         # Define servo pin IDs for the servo shield.
         self.pan_id = 7
         self.left_id = 5
@@ -46,7 +44,7 @@ class Servo:
         self.pca9685.freq(self.freq)
 
 
-    def set_differential_drive(self, speed_coeff: float, steering_bias: float) -> None:
+    def set_differential_drive(self, speed: float, bias: float) -> None:
         """
         Set speeds for a differential drive robot using a speed coefficient and a steering bias.
 
@@ -55,12 +53,12 @@ class Servo:
             steering_bias (float): Steering bias for the robot (-1 to 1).
         """
         # Validate input ranges
-        speed_coeff = max(min(speed_coeff, 1), 0)
-        steering_bias = max(min(steering_bias, 1), -1)
+        speed = max(min(speed, 1), 0)
+        bias = max(min(bias, 1), -1)
 
         # Calculate individual wheel speeds
-        left_speed = speed_coeff * (1 - steering_bias)
-        right_speed = speed_coeff * (1 + steering_bias)
+        left_speed = speed * (1 - bias)
+        right_speed = speed * (1 + bias)
 
         # Normalize speeds if they exceed 1
         max_speed = max(abs(left_speed), abs(right_speed))
@@ -107,88 +105,26 @@ class Servo:
             l_speed (float): Speed to set left wheel servo to (-1~1).\n
             r_speed (float): Speed to set right wheel servo to (-1~1).
         """
-        # Initialize signs for acceleration or deceleration
-        left_sign = 0
-        right_sign = 0
-        graduation = 0.25  # max "acceleration"
-        delay = 50  # ms resting time between jumps in speed
 
         # Constraint speeds to limits
         l_speed = max(min(l_speed, 1), -1)
         r_speed = max(min(r_speed, 1), -1)
+        self.curr_l_speed = l_speed
+        self.curr_r_speed = r_speed
 
-        # Smoothing for left speed
-        if abs(l_speed - self.curr_l_speed) > graduation:
-            if l_speed - self.curr_l_speed > 0:
-                left_sign = 1
-            else:
-                left_sign = -1
-            self.curr_l_speed += graduation * left_sign
-        else:
-            self.curr_l_speed = l_speed
-
-        # Smoothing for right speed
-        if abs(r_speed - self.curr_r_speed) > graduation:
-            if r_speed - self.curr_r_speed > 0:
-                right_sign = 1
-            else:
-                right_sign = -1
-            self.curr_r_speed += graduation * right_sign
-        else:
-            self.curr_r_speed = r_speed
-
-        # Convert smoothed speed to duty
-        l_duty = self.mid_duty + (self.span * (self.curr_l_speed + self.left_zero))
-        r_duty = self.mid_duty - (self.span * (self.curr_r_speed + self.right_zero))
+        # Convert speed to duty
+        l_duty = self.mid_duty + (self.span / 2 * (self.curr_l_speed + self.left_zero))
+        r_duty = self.mid_duty - (self.span / 2 * (self.curr_r_speed + self.right_zero))
 
         # Ensure duty cycle values are within the valid range
-        l_duty = max(min(l_duty, 4095), 0)
-        r_duty = max(min(r_duty, 4095), 0)
+        l_duty = max(min(l_duty, self.max_duty), self.min_duty)
+        r_duty = max(min(r_duty, self.max_duty), self.min_duty)
 
         # Set duty and send PWM signal
         self.pca9685.duty(self.left_id, int(l_duty))
         self.pca9685.duty(self.right_id, int(r_duty))
 
-        if left_sign != 0 or right_sign != 0:
-            time.sleep_ms(delay)  # Wait for a short period before the next iteration
-            self.set_speed(l_speed, r_speed)  # Recursive call
-
         return
-
-
-    #TODO: Implement tuning coefficients
-    def calc_speed(self, speed: float) -> float:
-        """
-        Calculate corrected speed based on tuning coefficients.
-
-        Args:
-            speed (float): Desired wheel speed in the range of -1~1.
-
-        Returns:
-            corr_speed (float): Corrected speed after applying tuning coefficients (-1~1).
-        """
-        if any(x != 0 for v in self.coeffs for x in v): # if tuning coeffs exist
-        # work out what throttle is needed to achieve desired speed
-            if speed > 0:
-                shift = self.coeffs[0][0]
-                xscale = self.coeffs[0][1]
-                yscale = self.coeffs[0][2]
-                # inverse the sine fit to find setting to match desired speed
-                corr_speed = xscale*asin(speed/yscale)+shift
-                if speed > 1:
-                    speed = 1
-
-            elif speed < 0:
-                shift = self.coeffs[1][0]
-                xscale = self.coeffs[1][1]
-                yscale = self.coeffs[1][2]
-                # inverse the sine fit to find setting to match desired speed
-                corr_speed = xscale*asin(speed/yscale)+shift
-                if speed < -1:
-                    speed = -1
-
-        return corr_speed
-
 
     def _duty2us(self, value: float) -> int:
         """
@@ -216,14 +152,14 @@ class Servo:
         return int(4095 * value / self.period)
 
 
-    def release(self, index: int) -> None:
+    def release(self, idx: int) -> None:
         """
         Simple servo release method
 
         Args:
-            index (int): Servo shield pin ID to reset.
+            idx (int): Servo shield pin ID to reset.
         """
-        self.pca9685.duty(index, 0)
+        self.pca9685.duty(idx, 0)
 
 
     def soft_reset(self) -> None:
@@ -245,30 +181,37 @@ class Servo:
         print("___Running Code___")
 
 
-
 if __name__ == "__main__":
     servo = Servo()
     servo.soft_reset()
 
     # Servo speed test
     print('\n0,0')
-    servo.set_speed(1,1)
+    servo.set_speed(0,0)
     time.sleep_ms(1000)
 
-    print('\n0.2,0.2')
-    servo.set_speed(0.2,0.2)
-    time.sleep_ms(10000)
+    print('\n0.1,0.1')
+    servo.set_speed(0.1,0.1)
+    time.sleep_ms(1000)
 
-    print('\n0.5, 0.5')
-    servo.set_speed(0.5, 0.5)
-    time.sleep_ms(3000)
+    print('\n-0.1, -0.1')
+    servo.set_speed(-0.1, -0.1)
+    time.sleep_ms(1000)
 
-    print('\n0, 0')
-    servo.set_speed(0.8, 0.8)
-    time.sleep_ms(3000)
+    print('\n0.5,0.5')
+    servo.set_speed(0.5,0.5)
+    time.sleep_ms(1000)
+
+    print('\n-0.5 -0.5')
+    servo.set_speed(-0.5, -0.5)
+    time.sleep_ms(1000)
 
     print('\n1, 1')
-    servo.set_speed(0.8, 0.8)
-    time.sleep_ms(3000)
+    servo.set_speed(1, 1)
+    time.sleep_ms(1000)
+
+    print('\n-1, -1')
+    servo.set_speed(-1, -1)
+    time.sleep_ms(1000)
 
     servo.soft_reset()

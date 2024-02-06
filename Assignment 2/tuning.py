@@ -3,12 +3,12 @@ from camera import *
 from pid import PID
 import os
 
-class Tuning(object):
+class PanTuning(object):
     """
     A class for managing PID tuning, servo calibration, and camera adjustments.
     """
 
-    def __init__(self, p=0.22, i=0.0, d=0.0, imax=0.0):
+    def __init__(self, thresholds, gain = 25, p=0.22, i=0.0, d=0.0, imax=0.0):
         """
         Initialise the Tuning object with given PID parameters.
         
@@ -20,7 +20,7 @@ class Tuning(object):
         """
         self.servo = Servo()
         self.servo.soft_reset()
-        self.cam = Cam()
+        self.cam = Cam(thresholds, gain)
         self.PID = PID(p, i, d, imax)
 
         self.min_angle = 0
@@ -68,10 +68,10 @@ class Tuning(object):
         while flag is True:
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
-            big_blob = self.cam.get_big_blob(blobs,img)
+            big_blob = self.cam.get_biggest_blob(blobs)
 
             # Check biggest blob is not None and is red for target then pass
-            if big_blob is not None and big_blob.code() == 1:
+            if big_blob is not None and self.cam.find_blob(big_blob, 0):
                 flag = False
 
         # Setup times for freq test
@@ -82,9 +82,9 @@ class Tuning(object):
             # Get new image and blocks
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
-            big_blob = self.cam.get_big_blob(blobs,img)
+            big_blob = self.cam.get_biggest_blob(blobs)
 
-            if big_blob is not None and big_blob.code() == 1:
+            if big_blob is not None and self.cam.find_blob(big_blob, 0):
                 error, target_angle = self.update_pan(big_blob)
 
             times.append(get_time()-t_start)
@@ -115,10 +115,10 @@ class Tuning(object):
 
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
-            big_blob = self.cam.get_big_blob(blobs,img)
+            big_blob = self.cam.get_biggest_blob(blobs)
 
-            # Check biggest blob is not None and is the blue for calibration
-            if big_blob is not None and big_blob.code() == 4:
+            # Check biggest blob is not None and is blue for calibration
+            if big_blob is not None and self.cam.find_blob(big_blob, 1):
 
                 # track the calibration target
                 error, pan_angle = self.update_pan(big_blob)

@@ -1,28 +1,26 @@
 from servos import *
-import time
+from camera import *
+import pyb
+
+led = pyb.LED(1)
+led.on()
 
 servo = Servo()
 servo.soft_reset()
 
-# Servo speed test
-print('\n0,0')
-servo.set_speed(0,0)
-time.sleep_ms(1000)
+thresholds = [
+              (60, 70, -40, -15, 25, 55), # Light green
+              (25, 35, -15, 10, -30, -10), # Blue
+              (68, 80, -30, 0, 40, 60), # Yellow
+              (45, 55, 40, 55, 15, 35), # Red
+]
+camera = Cam(thresholds)
 
-print('\n0.2,0.2')
-servo.set_speed(0.2,0.2)
-time.sleep_ms(3000)
-
-print('\n0.5, 0.5')
-servo.set_speed(0.5, 0.5)
-time.sleep_ms(3000)
-
-print('\n0, 0')
-servo.set_speed(0.8, 0.8)
-time.sleep_ms(3000)
-
-print('\n1, 1')
-servo.set_speed(0.8, 0.8)
-time.sleep_ms(3000)
+# Test your assignment code here. Think about how you might want to adjust the steering based on the position of
+# the colour targets in the image. What should the bot do if the next colour target is outside the field of view
+# of the camera? What would your bot do if the colour target is lost for a single frame? Some helpful functions are:
+# camera.get_blobs_bottom()
+# camera.find_blobs()
+# servos.set_differential_drive()
 
 servo.soft_reset()
