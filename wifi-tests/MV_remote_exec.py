@@ -3,9 +3,9 @@ import time
 import network
 import socket
 import errno
-import pyb
+from machine import LED
 
-led = pyb.LED(1)
+led = LED("LED_BLUE")
 led.on()
 
 # Network settings

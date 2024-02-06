@@ -1,7 +1,7 @@
 from servos import *
 from camera import *
 from pid import PID
-import os
+import os, time
 
 class PanTuning(object):
     """
@@ -11,7 +11,7 @@ class PanTuning(object):
     def __init__(self, thresholds, gain = 25, p=0.22, i=0.0, d=0.0, imax=0.0):
         """
         Initialise the Tuning object with given PID parameters.
-        
+
         Args:
             p (float): Proportional gain.
             i (float): Integral gain.
@@ -75,10 +75,10 @@ class PanTuning(object):
                 flag = False
 
         # Setup times for freq test
-        t_start = get_time()
+        t_start = time.time()
         t_end =  t_start + t_run
 
-        while get_time() < t_end:
+        while time.time() < t_end:
             # Get new image and blocks
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
@@ -87,7 +87,7 @@ class PanTuning(object):
             if big_blob is not None and self.cam.find_blob(big_blob, 0):
                 error, target_angle = self.update_pan(big_blob)
 
-            times.append(get_time()-t_start)
+            times.append(time.time()-t_start)
             errors.append(error)
             angles.append(target_angle)
 
@@ -107,7 +107,7 @@ class PanTuning(object):
         self.servo.set_angle(0)
 
         #  Set up clock for FPS and time tracking
-        t_run = get_time()
+        t_run = time.time()
         t_lost = t_run + 3
 
         # Loop until target is lost
@@ -136,7 +136,7 @@ class PanTuning(object):
                 t_lost = t_run + 1.5
 
             # Update run timer
-            t_run = get_time()
+            t_run = time.time()
 
             # print('FPS:           ',self.clock.fps())
 
@@ -218,6 +218,6 @@ def write_csv(data: tuple, freq: int) -> None:
 
         file.flush() # Flush buffer
 
-    pyb.delay(1000)
+    time.sleep_ms(1000)
     print("__Closing file__")
     print("Reset OpenMV camera in tools dropdown to load CSV")

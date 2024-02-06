@@ -1,8 +1,8 @@
 from servos import *
 from camera import *
-import pyb
+from machine import LED
 
-led = pyb.LED(1)
+led = LED("LED_BLUE")
 led.on()
 
 servo = Servo()
