@@ -6,8 +6,8 @@ def send_script_to_openmv(script, ip, port):
         s.sendall(script.encode())
 
 # Usage
-openmv_ip = '172.20.10.2'  # Replace with your OpenMV camera's IP address
-openmv_port = 8081         # The port for script execution
+openmv_ip = '192.168.4.1'  # Replace with your OpenMV camera's IP address
+openmv_port = 8080         # The port for script execution
 script = "print('Hello from remote script!')"  # Simple script to send
 
 send_script_to_openmv(script, openmv_ip, openmv_port)

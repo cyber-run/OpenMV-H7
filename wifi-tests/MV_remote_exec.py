@@ -8,28 +8,23 @@ from machine import LED
 led = LED("LED_BLUE")
 led.on()
 
-# Network settings
-SSID = 'charlie'  # Network SSID
-KEY = 'password123'  # Network key
+SSID = "OPENMV_AP"  # Network SSID GIVE THIS A UNIQUE NAME
+KEY = "1234567890"  # Network key (must be 10 chars)
+HOST = ""  # Use first available interface
+PORT = 8080  # Arbitrary non-privileged port
 
-# Script execution settings
-HOST_EXEC = ''  # Use first available interface for script execution
-PORT_EXEC = 8081  # Port for script execution
-
-# Initialize and connect to WiFi
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-wlan.connect(SSID, KEY)
-while not wlan.isconnected():
-    time.sleep_ms(100)
-
-print("WiFi Connected. IP:", wlan.ifconfig()[0])
+# Init wlan module and connect to network
+wlan = network.WLAN(network.AP_IF)
+wlan.active(0)
+wlan.config(ssid=SSID, key=KEY, channel=2)
+wlan.active(1)
+print("AP mode started. SSID: {} IP: {}".format(SSID, wlan.ifconfig()[0]))
 
 # Initialize server socket for script execution
 exec_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-exec_socket.bind((HOST_EXEC, PORT_EXEC))
+exec_socket.bind((HOST, PORT))
 exec_socket.listen(1)
-print("Listening for script execution on port", PORT_EXEC)
+print("Listening for script execution on port", PORT)
 
 def execute_script(script):
     try:
