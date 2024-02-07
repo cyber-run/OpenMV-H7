@@ -26,7 +26,7 @@ class Cam(object):
         self.w_centre = sensor.width()/2
         self.h_centre = sensor.height()/2
         self.h_fov = 70.8
-        self.v_fov = 55.4
+        self.v_fov = 55.6
         self.camera_elevation_angle = -11
         self.clock = time.clock()
 

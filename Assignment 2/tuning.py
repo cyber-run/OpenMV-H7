@@ -38,7 +38,7 @@ class PanTuning(object):
             freq (int): Frequency of oscillation in (Hz).
         """
         # Track 10 periods of oscillations
-        t_run = 10/freq
+        t_run = 1000*5/freq
         file_n = 0
 
         # Set up lists for data
@@ -71,23 +71,22 @@ class PanTuning(object):
             big_blob = self.cam.get_biggest_blob(blobs)
 
             # Check biggest blob is not None and is red for target then pass
-            if big_blob is not None and self.cam.find_blob(big_blob, 0):
+            if big_blob and self.cam.find_blob([big_blob], 0) is not None:
                 flag = False
 
         # Setup times for freq test
-        t_start = time.time()
-        t_end =  t_start + t_run
+        t_start = time.ticks_ms()
+        t_end =  time.ticks_add(t_start, int(t_run))
 
-        while time.time() < t_end:
+        while time.ticks_diff(t_end, time.ticks_ms()) > 0:
             # Get new image and blocks
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
             big_blob = self.cam.get_biggest_blob(blobs)
 
-            if big_blob is not None and self.cam.find_blob(big_blob, 0):
+            if big_blob and self.cam.find_blob([big_blob], 0) is not None:
                 error, target_angle = self.update_pan(big_blob)
-
-            times.append(time.time()-t_start)
+            times.append(time.ticks_diff(time.ticks_ms(), t_start))
             errors.append(error)
             angles.append(target_angle)
 
@@ -107,19 +106,16 @@ class PanTuning(object):
         self.servo.set_angle(0)
 
         #  Set up clock for FPS and time tracking
-        t_run = time.time()
-        t_lost = t_run + 3
+        t_lost = time.ticks_add(time.ticks_ms(), 3000)
 
         # Loop until target is lost
-        while t_run < t_lost:
+        while time.ticks_diff(t_lost, time.ticks_ms()) > 0:
 
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
             big_blob = self.cam.get_biggest_blob(blobs)
-
             # Check biggest blob is not None and is blue for calibration
-            if big_blob is not None and self.cam.find_blob(big_blob, 1):
-
+            if big_blob and self.cam.find_blob([big_blob], 1) is not None:
                 # track the calibration target
                 error, pan_angle = self.update_pan(big_blob)
 
@@ -133,12 +129,7 @@ class PanTuning(object):
                         print('New max angle: ', self.max_angle)
 
                 # As block was found reset lost timer
-                t_lost = t_run + 1.5
-
-            # Update run timer
-            t_run = time.time()
-
-            # print('FPS:           ',self.clock.fps())
+                t_lost = time.ticks_add(time.ticks_ms(), 1500)
 
 
     def update_pan(self, blob) -> tuple:
@@ -220,4 +211,4 @@ def write_csv(data: tuple, freq: int) -> None:
 
     time.sleep_ms(1000)
     print("__Closing file__")
-    print("Reset OpenMV camera in tools dropdown to load CSV")
+    print("Reset OpenMV camera to load CSV")
