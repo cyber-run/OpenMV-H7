@@ -1,17 +1,17 @@
 from servos import *
 from camera import *
 from pid import PID
-import os
+import os, time
 
-class Tuning(object):
+class PanTuning(object):
     """
     A class for managing PID tuning, servo calibration, and camera adjustments.
     """
 
-    def __init__(self, p=0.22, i=0.0, d=0.0, imax=0.0):
+    def __init__(self, thresholds, gain = 25, p=0.22, i=0.0, d=0.0, imax=0.0):
         """
         Initialise the Tuning object with given PID parameters.
-        
+
         Args:
             p (float): Proportional gain.
             i (float): Integral gain.
@@ -20,7 +20,7 @@ class Tuning(object):
         """
         self.servo = Servo()
         self.servo.soft_reset()
-        self.cam = Cam()
+        self.cam = Cam(thresholds, gain)
         self.PID = PID(p, i, d, imax)
 
         self.min_angle = 0
@@ -68,26 +68,26 @@ class Tuning(object):
         while flag is True:
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
-            big_blob = self.cam.get_big_blob(blobs,img)
+            big_blob = self.cam.get_biggest_blob(blobs)
 
             # Check biggest blob is not None and is red for target then pass
-            if big_blob is not None and big_blob.code() == 1:
+            if big_blob is not None and self.cam.find_blob(big_blob, 0):
                 flag = False
 
         # Setup times for freq test
-        t_start = get_time()
+        t_start = time.time()
         t_end =  t_start + t_run
 
-        while get_time() < t_end:
+        while time.time() < t_end:
             # Get new image and blocks
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
-            big_blob = self.cam.get_big_blob(blobs,img)
+            big_blob = self.cam.get_biggest_blob(blobs)
 
-            if big_blob is not None and big_blob.code() == 1:
+            if big_blob is not None and self.cam.find_blob(big_blob, 0):
                 error, target_angle = self.update_pan(big_blob)
 
-            times.append(get_time()-t_start)
+            times.append(time.time()-t_start)
             errors.append(error)
             angles.append(target_angle)
 
@@ -107,7 +107,7 @@ class Tuning(object):
         self.servo.set_angle(0)
 
         #  Set up clock for FPS and time tracking
-        t_run = get_time()
+        t_run = time.time()
         t_lost = t_run + 3
 
         # Loop until target is lost
@@ -115,10 +115,10 @@ class Tuning(object):
 
             # Get list of blobs and biggest blob
             blobs, img = self.cam.get_blobs()
-            big_blob = self.cam.get_big_blob(blobs,img)
+            big_blob = self.cam.get_biggest_blob(blobs)
 
-            # Check biggest blob is not None and is the blue for calibration
-            if big_blob is not None and big_blob.code() == 4:
+            # Check biggest blob is not None and is blue for calibration
+            if big_blob is not None and self.cam.find_blob(big_blob, 1):
 
                 # track the calibration target
                 error, pan_angle = self.update_pan(big_blob)
@@ -136,7 +136,7 @@ class Tuning(object):
                 t_lost = t_run + 1.5
 
             # Update run timer
-            t_run = get_time()
+            t_run = time.time()
 
             # print('FPS:           ',self.clock.fps())
 
@@ -218,6 +218,6 @@ def write_csv(data: tuple, freq: int) -> None:
 
         file.flush() # Flush buffer
 
-    pyb.delay(1000)
+    time.sleep_ms(1000)
     print("__Closing file__")
     print("Reset OpenMV camera in tools dropdown to load CSV")

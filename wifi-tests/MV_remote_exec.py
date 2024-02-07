@@ -3,6 +3,10 @@ import time
 import network
 import socket
 import errno
+from machine import LED
+
+led = LED("LED_BLUE")
+led.on()
 
 # Network settings
 SSID = 'charlie'  # Network SSID

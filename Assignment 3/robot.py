@@ -1,13 +1,14 @@
 from servos import *
 from camera import *
 from pid import PID
+import sensor
 
 class Robot(object):
     """
     A class to manage the functions of a robot for driving and tracking purposes using a camera and servos.
     """
 
-    def __init__(self, p=0.22, i=0.0, d=0.0, imax=0.0):
+    def __init__(self, thresholds, gain = 25, p=0.22, i=0.0, d=0.0, imax=0.0):
         """
         Initializes the Robot object with given PID parameters.
 
@@ -20,63 +21,33 @@ class Robot(object):
 
         self.servo = Servo()
         self.servo.soft_reset()
-        self.cam = Cam()
+        self.cam = Cam(thresholds, gain)
         self.PID = PID(p, i, d, imax)
 
-        # Blob IDs
-        self.mid_line_id = 1
-        self.l_line_id = 2
-        self.r_line_id = 3
-        self.obstacle_id = 4
 
-
-    def follow_line(self) -> None:
+    def follow_blob(self, speed: float, threshold_idx: int) -> None:
         """
-        Follows the line using the camera and drives towards it.
+        Follows a blob using the camera and drives towards it.
         """
         while True:
             # Track red line
-            big_blob = self.track_blob(self.mid_line_id)
+            big_blob = self.track_blob(threshold_idx)
 
-            if big_blob is not None and big_blob.code() == self.mid_line_id:
+            if big_blob is not None:
                 # Get heading angle
                 heading_angle = self.servo.pan_pos
+
                 # Convert to angle correction weight (between -1 and 1)
                 angle_correction = heading_angle/self.servo.max_deg
+
                 # Drive towards line
-                self.drive(0.5, angle_correction)
+                self.drive(speed, angle_correction)
             else:
                 self.drive(0, 0)
-                print('No line found')
+                print('Correct blob not found')
 
 
-    def drive(self, drive: float, bias: float) -> None:
-        """
-        Differential drive function for the robot.
-
-        Args:
-            drive (float): Speed to set the servos to (-1~1) \n
-            bias (float): Bias to set the steering to (-1~1)
-        """
-        # Apply limits
-        bias = max(min(bias, 1), -1)
-        drive = max(min(drive, 1), -1)
-
-        # Calculate differential drive
-        diff_drive = bias*drive
-
-        # Calculate straight drive
-        straight_drive = drive - abs(diff_drive)
-
-        # Calculate left and right drive
-        l_drive = straight_drive - diff_drive
-        r_drive = straight_drive + diff_drive
-
-        # Apply tuning coefficients
-        self.servo.set_speed(l_drive, r_drive)
-
-
-    def track_blob(self, blob_id: int):
+    def track_blob(self, threshold_idx: int):
         """
         Adjust the camera pan angle to track a specified blob based on its ID.
 
@@ -88,10 +59,10 @@ class Robot(object):
         """
         # Get list of blobs and biggest blob
         blobs, img = self.cam.get_blobs()
-        big_blob = self.cam.get_big_blob(blobs,img)
+        big_blob = self.cam.get_biggest_blob(blobs)
 
         # Check biggest blob is not None and is the defined ID
-        if big_blob is not None and big_blob.code() == blob_id:
+        if big_blob is not None and self.cam.find_blob(big_blob, threshold_idx):
 
             # Error between camera angle and target in pixels
             pixel_error = big_blob.cx() - self.cam.w_centre
@@ -107,7 +78,17 @@ class Robot(object):
             # Move pan servo to track block
             self.servo.set_angle(pan_angle)
 
-        return big_blob
+            return big_blob
+        else:
+            print('Correct blob not found')
+            return None
+
+
+    def drive(self, speed: float, bias: float) -> None:
+        """
+        Resets the servo positions to their default states.
+        """
+        self.servo.set_differential_drive(speed, bias)
 
 
     def reset(self) -> None:
