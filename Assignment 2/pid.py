@@ -8,7 +8,7 @@ while(True):
     #control value with output
 """
 
-from time import ticks_ms
+import time
 from math import pi, isnan
 
 
@@ -25,8 +25,8 @@ class PID:
         self._last_derivative = float("nan")
 
     def get_pid(self, error, scaler):
-        tnow = ticks_ms()
-        dt = tnow - self._last_t
+        tnow = time.ticks_ms()
+        dt = time.ticks_diff(tnow, self._last_t)
         output = 0
         if self._last_t == 0 or dt > 1000:
             dt = 0
